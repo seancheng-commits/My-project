@@ -1,9 +1,15 @@
+# ===== Unity 自動產生（一定要忽略）=====
 Library/
 Temp/
 Obj/
 Logs/
+UserSettings/
+
+# ===== IDE / 編輯器 =====
 .vs/
 *.sln
 *.csproj
+
+# ===== 作業系統垃圾 =====
 .DS_Store
 Thumbs.db

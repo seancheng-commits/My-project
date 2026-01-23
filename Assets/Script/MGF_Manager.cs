@@ -8,16 +8,11 @@ public class MGF_Manager : MonoBehaviour
     [Header("題目區 17 張牌")]
     public List<Image> tileSlots; // Inspector 指定 17 個 Image
 
-    [Header("答案區")]
-    public List<Image> answerSlots; // Inspector 指定 17 個 Image
-
     [Header("滑動選牌區")]
     public Transform scrollContent;      // ScrollView Content
-    public GameObject tileSlotPrefab;    // 指定你的 TitleSlot Prefab
+    public GameObject tileSlotPrefab;    // TileSlot Prefab
 
     private List<Tile> currentQuestion;                  // 目前題目牌
-    private List<Tile> selectedTiles = new List<Tile>(); // 玩家已選答案
-    private Dictionary<string, int> selectedTileCount = new Dictionary<string, int>();
 
     // 麻將花色
     public enum TileSuit { Man, Pin, Sou, Honor }
@@ -37,7 +32,6 @@ public class MGF_Manager : MonoBehaviour
             Value = value;
         }
 
-        // 取得 Sprite 名稱
         public string GetSpriteName()
         {
             switch (Suit)
@@ -50,7 +44,6 @@ public class MGF_Manager : MonoBehaviour
             return "";
         }
 
-        // 字牌名稱
         string GetHonorSpriteName()
         {
             switch ((HonorType)Value)
@@ -69,11 +62,11 @@ public class MGF_Manager : MonoBehaviour
 
     void Start()
     {
-        ShowNewQuestion(); // 生成題目
-        InitAllTiles();    // 初始化滑動選牌區
+        ShowNewQuestion(); // 題目區
+        InitAllTiles();    // 滑動答案區
     }
 
-    public void OnResButtonClick() => ShowNewQuestion(); // 重製題目
+    public void OnResButtonClick() => ShowNewQuestion();
 
     // 隨機生成單張麻將
     static Tile RandomTile()
@@ -92,17 +85,16 @@ public class MGF_Manager : MonoBehaviour
         }
         else
         {
-            value = Random.Range(1, 10); // 數字牌 1~9
+            value = Random.Range(1, 10);
         }
 
         return new Tile(suit, value);
     }
 
-    // 生成順子
     static void AddSequence(List<Tile> hand, Dictionary<string, int> tileCount)
     {
         TileSuit suit = (TileSuit)Random.Range(0, 3); // Man, Pin, Sou
-        int start = Random.Range(1, 8); // 順子起始數字 1~7
+        int start = Random.Range(1, 8); // 順子起始數字
 
         for (int i = 0; i < 3; i++)
         {
@@ -119,7 +111,6 @@ public class MGF_Manager : MonoBehaviour
         }
     }
 
-    // 排序函式：先花色，再數字
     static int TileCompare(Tile a, Tile b)
     {
         if (a.Suit != b.Suit)
@@ -127,15 +118,9 @@ public class MGF_Manager : MonoBehaviour
         return a.Value.CompareTo(b.Value);
     }
 
-    // 生成題目牌
+    // 題目區生成
     public void ShowNewQuestion()
     {
-        // 重置答案區
-        selectedTiles.Clear();
-        selectedTileCount.Clear();
-        foreach (var img in answerSlots)
-            img.enabled = false;
-
         currentQuestion = new List<Tile>();
         Dictionary<string, int> tileCount = new Dictionary<string, int>();
 
@@ -146,7 +131,7 @@ public class MGF_Manager : MonoBehaviour
         currentQuestion.Add(pair);
         currentQuestion.Add(new Tile(pair.Suit, pair.Value));
 
-        // 5 組面子 → 固定 17 張牌
+        // 5 組面子
         while (currentQuestion.Count < 17)
         {
             if (Random.value < 0.5f)
@@ -176,34 +161,39 @@ public class MGF_Manager : MonoBehaviour
         // 排序
         currentQuestion.Sort(TileCompare);
 
+        // 顯示題目
+        for (int i = 0; i < tileSlots.Count; i++)
+        {
+            if (i >= currentQuestion.Count)
+            {
+                if (tileSlots[i] != null)
+                    tileSlots[i].enabled = false;
+                continue;
+            }
+
+            if (tileSlots[i] != null)
+            {
+                Sprite sprite = Resources.Load<Sprite>("Tiles/" + currentQuestion[i].GetSpriteName());
+                if (sprite != null)
+                    tileSlots[i].sprite = sprite;
+                tileSlots[i].enabled = true;
+            }
+        }
+
         // LOG
         string log = "本次題目：";
         foreach (var t in currentQuestion)
             log += t.GetSpriteName() + " ";
         Debug.Log(log);
-
-        // 顯示題目牌
-        for (int i = 0; i < tileSlots.Count; i++)
-        {
-            if (i >= currentQuestion.Count) { tileSlots[i].enabled = false; continue; }
-
-            Sprite sprite = Resources.Load<Sprite>("Tiles/" + currentQuestion[i].GetSpriteName());
-            if (sprite != null)
-                tileSlots[i].sprite = sprite;
-            tileSlots[i].enabled = true;
-        }
     }
 
-    // 取得滑動選牌區完整列表（萬>筒>條>字）
+    // 滑動答案區完整牌列表
     List<Tile> GetAllMahjongTiles()
     {
         List<Tile> tiles = new List<Tile>();
-        for (int i = 1; i <= 9; i++)
-            tiles.Add(new Tile(TileSuit.Man, i));
-        for (int i = 1; i <= 9; i++)
-            tiles.Add(new Tile(TileSuit.Pin, i));
-        for (int i = 1; i <= 9; i++)
-            tiles.Add(new Tile(TileSuit.Sou, i));
+        for (int i = 1; i <= 9; i++) tiles.Add(new Tile(TileSuit.Man, i));
+        for (int i = 1; i <= 9; i++) tiles.Add(new Tile(TileSuit.Pin, i));
+        for (int i = 1; i <= 9; i++) tiles.Add(new Tile(TileSuit.Sou, i));
         tiles.Add(new Tile(TileSuit.Honor, (int)HonorType.Ton));
         tiles.Add(new Tile(TileSuit.Honor, (int)HonorType.Nan));
         tiles.Add(new Tile(TileSuit.Honor, (int)HonorType.Shaa));
@@ -214,7 +204,7 @@ public class MGF_Manager : MonoBehaviour
         return tiles;
     }
 
-    // 初始化滑動選牌區
+    // 初始化滑動答案區
     public void InitAllTiles()
     {
         if (scrollContent == null || tileSlotPrefab == null)
@@ -223,7 +213,6 @@ public class MGF_Manager : MonoBehaviour
             return;
         }
 
-        // 清空舊子物件
         foreach (Transform child in scrollContent)
             Destroy(child.gameObject);
 
@@ -250,89 +239,9 @@ public class MGF_Manager : MonoBehaviour
                         Tile capturedTile = tile; // Lambda 捕捉
                         btn.onClick.AddListener(() =>
                         {
-                            OnTileClicked(capturedTile);
+                            Debug.Log("滑動區牌點擊: " + capturedTile.GetSpriteName());
                         });
                     }
-                    else
-                    {
-                        Debug.LogWarning("TileImage 上沒有 Button 組件！");
-                    }
-                }
-            }
-            else
-            {
-                Debug.LogWarning("TitleSlot 沒有 TileImage 子物件！");
-            }
-        }
-    }
-
-    // 點滑動區麻將
-    void OnTileClicked(Tile tile)
-    {
-        Debug.Log("滑動區牌點擊: " + tile.GetSpriteName());
-
-        string name = tile.GetSpriteName();
-        if (!selectedTileCount.ContainsKey(name))
-            selectedTileCount[name] = 0;
-
-        if (selectedTileCount[name] >= 4)
-        {
-            Debug.Log("此牌已選滿 4 張：" + name);
-            return;
-        }
-
-        if (selectedTiles.Count >= answerSlots.Count)
-        {
-            Debug.Log("答案區已滿");
-            return;
-        }
-
-        selectedTiles.Add(tile);
-        selectedTileCount[name]++;
-        RefreshAnswerUI();
-    }
-
-    // 更新答案區 UI
-    void RefreshAnswerUI()
-    {
-        // 先清空答案區
-        for (int i = 0; i < answerSlots.Count; i++)
-        {
-            if (answerSlots[i] != null)
-            {
-                answerSlots[i].enabled = false;
-                Button oldBtn = answerSlots[i].GetComponent<Button>();
-                if (oldBtn != null)
-                    oldBtn.onClick.RemoveAllListeners();
-            }
-        }
-
-        // 顯示已選牌
-        for (int index = 0; index < selectedTiles.Count; index++)
-        {
-            if (index >= answerSlots.Count) break;
-
-            Tile tile = selectedTiles[index];            // 局部 tile 避免 lambda 捕捉 i
-            Image slotImg = answerSlots[index];          // 局部 Image 避免 lambda 捕捉
-
-            if (slotImg == null) continue;
-
-            Sprite sprite = Resources.Load<Sprite>("Tiles/" + tile.GetSpriteName());
-            if (sprite != null)
-            {
-                slotImg.sprite = sprite;
-                slotImg.preserveAspect = true;
-                slotImg.enabled = true;
-
-                Button btn = slotImg.GetComponent<Button>();
-                if (btn != null)
-                {
-                    btn.onClick.RemoveAllListeners();
-                    btn.onClick.AddListener(() =>
-                    {
-                        if (slotImg != null) // 安全檢查
-                            Debug.Log("答案牌點擊: " + tile.GetSpriteName());
-                    });
                 }
             }
         }
