@@ -11,12 +11,19 @@ public class MGF_Manager : MonoBehaviour
     public Transform scrollContent;      // ScrollView Content
     public GameObject tileSlotPrefab;    // TileSlot Prefab
 
-    [Header("顯示答案區 17 張")]
-    public List<Image> answerSlots;      // Inspector 指定 17 個 Image
+    [Header("玩家答案區，每列 17 張，共 4 列")]
+    public List<Image> row0; // 第一列
+    public List<Image> row1; // 第二列
+    public List<Image> row2; // 第三列
+    public List<Image> row3; // 第四列
+
+    private List<List<Image>> allRows; // 整合四列，方便操作
 
     private List<Tile> currentQuestion;                  // 目前題目牌
     private List<Tile> playerAnswers = new List<Tile>(); // 玩家已選答案
     private Dictionary<string, int> playerTileCount = new Dictionary<string, int>(); // 同一張牌最多 4 張
+
+    private int currentRowIndex = 0; // 當前答案列
 
     const int MAX_ANSWER = 17; // 答案區上限 17 張
 
@@ -51,6 +58,9 @@ public class MGF_Manager : MonoBehaviour
     // ================= Start =================
     void Start()
     {
+        // 整合四列
+        allRows = new List<List<Image>>() { row0, row1, row2, row3 };
+
         ShowNewQuestion();   // 題目區
         InitAllTiles();      // 滑動選牌區
         InitAnswerArea();    // 清空答案區
@@ -85,7 +95,6 @@ public class MGF_Manager : MonoBehaviour
         Tile pair = tilePool[pairIndex];
         currentQuestion.Add(pair);
         currentQuestion.Add(new Tile(pair.Suit, pair.Value));
-        // 移除這兩張
         tilePool.RemoveAll(t => t.Suit == pair.Suit && t.Value == pair.Value);
 
         // ===== 5 組面子 =====
@@ -187,12 +196,19 @@ public class MGF_Manager : MonoBehaviour
     {
         playerAnswers.Clear();
         playerTileCount.Clear();
+        currentRowIndex = 0;
 
-        // 清空答案區圖片
-        foreach (var img in answerSlots)
+        // 清空四列答案區圖片
+        foreach (var row in allRows)
         {
-            img.sprite = null;
-            img.enabled = false;
+            foreach (var img in row)
+            {
+                img.sprite = null;
+                img.enabled = false;
+                // Mask 透明
+                if (img.transform.childCount > 0)
+                    img.transform.GetChild(0).gameObject.SetActive(false);
+            }
         }
     }
 
@@ -217,24 +233,102 @@ public class MGF_Manager : MonoBehaviour
 
         playerAnswers.Add(tile);
         playerTileCount[name]++;
-        RefreshAnswerUI();
+
+        // ===== 顯示答案在當前列 =====
+        RefreshAnswerRow(currentRowIndex, playerAnswers);
     }
 
-    void RefreshAnswerUI()
+    // ===== 顯示答案列函式 =====
+    void RefreshAnswerRow(int rowIndex, List<Tile> answers)
     {
-        // 顯示已選牌在答案區
-        for (int i = 0; i < answerSlots.Count; i++)
+        if (rowIndex < 0 || rowIndex >= allRows.Count) return;
+
+        List<Image> row = allRows[rowIndex];
+        for (int i = 0; i < row.Count; i++)
         {
-            if (i >= playerAnswers.Count)
+            if (i >= answers.Count)
             {
-                answerSlots[i].enabled = false;
+                row[i].enabled = false;
+                if (row[i].transform.childCount > 0)
+                    row[i].transform.GetChild(0).gameObject.SetActive(false);
                 continue;
             }
 
-            Tile tile = playerAnswers[i];
+            Tile tile = answers[i];
             Sprite sprite = Resources.Load<Sprite>("Tiles/" + tile.GetSpriteName());
-            answerSlots[i].sprite = sprite;
-            answerSlots[i].enabled = true;
+            row[i].sprite = sprite;
+            row[i].enabled = true;
+
+            // 隱藏提示遮罩
+            if (row[i].transform.childCount > 0)
+                row[i].transform.GetChild(0).gameObject.SetActive(false);
         }
+    }
+
+    // ================= 確認答案按鈕 =================
+    public void OnSubmitAnswer()
+    {
+        // ===== 檢查答案長度 =====
+        if (playerAnswers.Count != currentQuestion.Count)
+        {
+            Debug.Log("答案長度不符合，無法提交！");
+            return;
+        }
+
+        // ===== 檢查答案能否胡牌（可擴充） =====
+        if (!CanHu(playerAnswers))
+        {
+            Debug.Log("答案無法胡牌！");
+            return;
+        }
+
+        // ===== 開始比對答案 =====
+        CompareAnswer();
+    }
+
+    // ===== 範例胡牌檢查（簡單版，可再擴充） =====
+    bool CanHu(List<Tile> answers)
+    {
+        // 這裡先暫時回傳 true
+        return true;
+    }
+
+    // ===== 答案比對 =====
+    void CompareAnswer()
+    {
+        if (currentRowIndex >= allRows.Count) return;
+
+        List<Image> row = allRows[currentRowIndex];
+
+        for (int i = 0; i < playerAnswers.Count; i++)
+        {
+            Tile playerTile = playerAnswers[i];
+            Tile correctTile = currentQuestion[i];
+
+            if (playerTile.Suit == correctTile.Suit && playerTile.Value == correctTile.Value)
+            {
+                // 完全正確，顯示答案
+                row[i].sprite = Resources.Load<Sprite>("Tiles/" + playerTile.GetSpriteName());
+                row[i].enabled = true;
+            }
+            else
+            {
+                // 牌對但位置不對 → 顯示遮罩提示
+                row[i].enabled = true;
+                if (row[i].transform.childCount > 0)
+                {
+                    row[i].transform.GetChild(0).gameObject.SetActive(true);
+                    // 可用不同顏色區分提示
+                    row[i].transform.GetChild(0).GetComponent<Image>().color = Color.yellow;
+                }
+            }
+        }
+
+        // 下一列
+        currentRowIndex++;
+
+        // 清空玩家答案區，準備下一次作答
+        playerAnswers.Clear();
+        playerTileCount.Clear();
     }
 }
