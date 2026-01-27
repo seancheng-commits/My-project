@@ -20,12 +20,14 @@ public class MGF_Manager : MonoBehaviour
     private List<List<Image>> allRows; // 整合四列，方便操作
 
     private List<Tile> currentQuestion;                  // 目前題目牌
-    private List<Tile> playerAnswers = new List<Tile>(); // 玩家已選答案
-    private Dictionary<string, int> playerTileCount = new Dictionary<string, int>(); // 同一張牌最多 4 張
+    private List<Tile> playerAnswers = new List<Tile>(); // 玩家當前作答
+    private Dictionary<string, int> playerTileCount = new Dictionary<string, int>(); // 同牌最多 4 張
 
     private int currentRowIndex = 0; // 當前答案列
+    const int MAX_ANSWER = 17;
 
-    const int MAX_ANSWER = 17; // 答案區上限 17 張
+    public GameObject MessageBox;
+    public Text Messagetext;
 
     // ================= 麻將資料 =================
     public enum TileSuit { Man, Pin, Sou, Honor }
@@ -58,18 +60,24 @@ public class MGF_Manager : MonoBehaviour
     // ================= Start =================
     void Start()
     {
-        // 整合四列
         allRows = new List<List<Image>>() { row0, row1, row2, row3 };
 
-        ShowNewQuestion();   // 題目區
-        InitAllTiles();      // 滑動選牌區
-        InitAnswerArea();    // 清空答案區
+        ShowNewQuestion();   // 題目
+        InitAllTiles();      // 滑動選牌
+        InitAnswerArea();    // 清空答案
+        MessageBox.SetActive(false);
+        Messagetext.text = "";
     }
 
     public void OnResButtonClick()
     {
-        ShowNewQuestion();   // 重製題目
-        InitAnswerArea();    // 清空答案區
+        ShowNewQuestion();
+        InitAnswerArea();
+    }
+
+    public void OnCloseMessageBoxClick()
+    {
+        MessageBox.SetActive(false);
     }
 
     // ================= 題目生成 =================
@@ -84,82 +92,69 @@ public class MGF_Manager : MonoBehaviour
         currentQuestion = new List<Tile>();
         List<Tile> tilePool = new List<Tile>();
 
-        // ===== 建立完整牌池（每種牌 4 張） =====
+        // 建立完整牌池（每種 4 張）
         for (int i = 1; i <= 9; i++) for (int j = 0; j < 4; j++) tilePool.Add(new Tile(TileSuit.Man, i));
         for (int i = 1; i <= 9; i++) for (int j = 0; j < 4; j++) tilePool.Add(new Tile(TileSuit.Pin, i));
         for (int i = 1; i <= 9; i++) for (int j = 0; j < 4; j++) tilePool.Add(new Tile(TileSuit.Sou, i));
         for (int i = 1; i <= 7; i++) for (int j = 0; j < 4; j++) tilePool.Add(new Tile(TileSuit.Honor, i));
 
-        // ===== 1 對將 =====
-        int pairIndex = Random.Range(0, tilePool.Count);
-        Tile pair = tilePool[pairIndex];
+        // ===== 取一對將 =====
+        Tile pair = tilePool[Random.Range(0, tilePool.Count)];
         currentQuestion.Add(pair);
         currentQuestion.Add(new Tile(pair.Suit, pair.Value));
         tilePool.RemoveAll(t => t.Suit == pair.Suit && t.Value == pair.Value);
 
-        // ===== 5 組面子 =====
+        // ===== 組 5 面子 =====
         while (currentQuestion.Count < 17)
         {
             if (Random.value < 0.5f)
             {
-                // 嘗試生成順子
-                TileSuit suit = (TileSuit)Random.Range(0, 3); // Man, Pin, Sou
+                // 順子
+                TileSuit suit = (TileSuit)Random.Range(0, 3);
                 int start = Random.Range(1, 8);
-                bool canMakeSeq = true;
-                List<Tile> seqTiles = new List<Tile>();
-                for (int i = 0; i < 3; i++)
+
+                Tile a = tilePool.Find(t => t.Suit == suit && t.Value == start);
+                Tile b = tilePool.Find(t => t.Suit == suit && t.Value == start + 1);
+                Tile c = tilePool.Find(t => t.Suit == suit && t.Value == start + 2);
+
+                if (a != null && b != null && c != null)
                 {
-                    Tile t = tilePool.Find(x => x.Suit == suit && x.Value == start + i);
-                    if (t != null) seqTiles.Add(t);
-                    else { canMakeSeq = false; break; }
-                }
-                if (canMakeSeq)
-                {
-                    foreach (Tile t in seqTiles)
-                    {
-                        currentQuestion.Add(t);
-                        tilePool.Remove(t);
-                    }
+                    currentQuestion.Add(a);
+                    currentQuestion.Add(b);
+                    currentQuestion.Add(c);
+                    tilePool.Remove(a);
+                    tilePool.Remove(b);
+                    tilePool.Remove(c);
                 }
             }
             else
             {
-                // 嘗試生成刻子
-                int idx = Random.Range(0, tilePool.Count);
-                Tile t = tilePool[idx];
-                List<Tile> triplet = tilePool.FindAll(x => x.Suit == t.Suit && x.Value == t.Value);
-                if (triplet.Count >= 3)
+                // 刻子
+                Tile t = tilePool[Random.Range(0, tilePool.Count)];
+                List<Tile> same = tilePool.FindAll(x => x.Suit == t.Suit && x.Value == t.Value);
+                if (same.Count >= 3)
                 {
-                    currentQuestion.Add(triplet[0]);
-                    currentQuestion.Add(triplet[1]);
-                    currentQuestion.Add(triplet[2]);
-                    tilePool.Remove(triplet[0]);
-                    tilePool.Remove(triplet[1]);
-                    tilePool.Remove(triplet[2]);
+                    currentQuestion.Add(same[0]);
+                    currentQuestion.Add(same[1]);
+                    currentQuestion.Add(same[2]);
+                    tilePool.Remove(same[0]);
+                    tilePool.Remove(same[1]);
+                    tilePool.Remove(same[2]);
                 }
             }
         }
 
         currentQuestion.Sort(TileCompare);
 
-        // ===== 顯示題目區 =====
+        // 顯示題目
         for (int i = 0; i < tileSlots.Count; i++)
         {
-            if (i >= currentQuestion.Count)
-            {
-                tileSlots[i].enabled = false;
-                continue;
-            }
-
-            Sprite sprite = Resources.Load<Sprite>("Tiles/" + currentQuestion[i].GetSpriteName());
-            tileSlots[i].sprite = sprite;
+            tileSlots[i].sprite = Resources.Load<Sprite>("Tiles/" + currentQuestion[i].GetSpriteName());
             tileSlots[i].enabled = true;
         }
-
-        Debug.Log("合法題目生成完成：" + string.Join(" ", currentQuestion.ConvertAll(t => t.GetSpriteName())));
     }
 
-    // ================= 滑動選牌區 =================
+    // ================= 滑動選牌 =================
     List<Tile> GetAllMahjongTiles()
     {
         List<Tile> list = new List<Tile>();
@@ -178,34 +173,26 @@ public class MGF_Manager : MonoBehaviour
         foreach (Tile tile in GetAllMahjongTiles())
         {
             GameObject slot = Instantiate(tileSlotPrefab, scrollContent);
-
             Image img = slot.transform.Find("TileImage").GetComponent<Image>();
             img.sprite = Resources.Load<Sprite>("Tiles/" + tile.GetSpriteName());
-            img.preserveAspect = true;
 
-            Button btn = img.GetComponent<Button>();
             Tile captured = tile;
-
-            // 點擊滑動區牌，加入答案區
-            btn.onClick.AddListener(() => OnScrollTileClicked(captured));
+            img.GetComponent<Button>().onClick.AddListener(() => OnScrollTileClicked(captured));
         }
     }
 
-    // ================= 顯示答案區 =================
+    // ================= 作答 =================
     void InitAnswerArea()
     {
         playerAnswers.Clear();
         playerTileCount.Clear();
         currentRowIndex = 0;
 
-        // 清空四列答案區圖片
         foreach (var row in allRows)
         {
             foreach (var img in row)
             {
-                img.sprite = null;
                 img.enabled = false;
-                // Mask 透明
                 if (img.transform.childCount > 0)
                     img.transform.GetChild(0).gameObject.SetActive(false);
             }
@@ -214,120 +201,132 @@ public class MGF_Manager : MonoBehaviour
 
     void OnScrollTileClicked(Tile tile)
     {
-        string name = tile.GetSpriteName();
+        string key = tile.GetSpriteName();
+        if (!playerTileCount.ContainsKey(key)) playerTileCount[key] = 0;
+        if (playerTileCount[key] >= 4 || playerAnswers.Count >= MAX_ANSWER) return;
 
-        // ===== 限制同一張牌最多 4 張 =====
-        if (!playerTileCount.ContainsKey(name)) playerTileCount[name] = 0;
-        if (playerTileCount[name] >= 4)
-        {
-            Debug.Log("此牌已選滿 4 張：" + name);
-            return;
-        }
-
-        // ===== 限制答案區最多 17 張 =====
-        if (playerAnswers.Count >= MAX_ANSWER)
-        {
-            Debug.Log("答案已滿 17 張");
-            return;
-        }
-
+        playerTileCount[key]++;
         playerAnswers.Add(tile);
-        playerTileCount[name]++;
 
-        // ===== 顯示答案在當前列 =====
-        RefreshAnswerRow(currentRowIndex, playerAnswers);
+        RefreshAnswerRow(currentRowIndex);
     }
 
-    // ===== 顯示答案列函式 =====
-    void RefreshAnswerRow(int rowIndex, List<Tile> answers)
+    void RefreshAnswerRow(int rowIndex)
     {
-        if (rowIndex < 0 || rowIndex >= allRows.Count) return;
-
         List<Image> row = allRows[rowIndex];
         for (int i = 0; i < row.Count; i++)
         {
-            if (i >= answers.Count)
+            if (i >= playerAnswers.Count)
             {
                 row[i].enabled = false;
-                if (row[i].transform.childCount > 0)
-                    row[i].transform.GetChild(0).gameObject.SetActive(false);
                 continue;
             }
 
-            Tile tile = answers[i];
-            Sprite sprite = Resources.Load<Sprite>("Tiles/" + tile.GetSpriteName());
-            row[i].sprite = sprite;
+            row[i].sprite = Resources.Load<Sprite>("Tiles/" + playerAnswers[i].GetSpriteName());
             row[i].enabled = true;
-
-            // 隱藏提示遮罩
-            if (row[i].transform.childCount > 0)
-                row[i].transform.GetChild(0).gameObject.SetActive(false);
         }
     }
 
-    // ================= 確認答案按鈕 =================
+    // ================= 提交答案 =================
     public void OnSubmitAnswer()
     {
-        // ===== 檢查答案長度 =====
-        if (playerAnswers.Count != currentQuestion.Count)
+        if (playerAnswers.Count != 17)
         {
-            Debug.Log("答案長度不符合，無法提交！");
+            Debug.Log("答案數量錯誤");
+            MessageBox.SetActive(true);
+            Messagetext.text = "你確定作答完了嗎?";
             return;
         }
 
-        // ===== 檢查答案能否胡牌（可擴充） =====
         if (!CanHu(playerAnswers))
         {
-            Debug.Log("答案無法胡牌！");
+            Debug.Log("此答案無法胡牌");
+            MessageBox.SetActive(true);
+            Messagetext.text = "無法胡牌!!!";
             return;
         }
 
-        // ===== 開始比對答案 =====
         CompareAnswer();
     }
 
-    // ===== 範例胡牌檢查（簡單版，可再擴充） =====
-    bool CanHu(List<Tile> answers)
+    // ================= 胡牌檢查 =================
+    bool CanHu(List<Tile> tiles)
     {
-        // 這裡先暫時回傳 true
-        return true;
+        List<Tile> sorted = new List<Tile>(tiles);
+        sorted.Sort(TileCompare);
+
+        for (int i = 0; i < sorted.Count - 1; i++)
+        {
+            if (sorted[i].Suit == sorted[i + 1].Suit &&
+                sorted[i].Value == sorted[i + 1].Value)
+            {
+                List<Tile> remain = new List<Tile>(sorted);
+                remain.RemoveAt(i + 1);
+                remain.RemoveAt(i);
+                if (CanFormMelds(remain)) return true;
+            }
+        }
+        return false;
     }
 
-    // ===== 答案比對 =====
+    bool CanFormMelds(List<Tile> tiles)
+    {
+        if (tiles.Count == 0) return true;
+
+        tiles.Sort(TileCompare);
+        Tile first = tiles[0];
+
+        // 刻子
+        int count = tiles.FindAll(t => t.Suit == first.Suit && t.Value == first.Value).Count;
+        if (count >= 3)
+        {
+            List<Tile> next = new List<Tile>(tiles);
+            for (int i = 0; i < 3; i++)
+                next.Remove(next.Find(t => t.Suit == first.Suit && t.Value == first.Value));
+            if (CanFormMelds(next)) return true;
+        }
+
+        // 順子
+        if (first.Suit != TileSuit.Honor)
+        {
+            Tile b = tiles.Find(t => t.Suit == first.Suit && t.Value == first.Value + 1);
+            Tile c = tiles.Find(t => t.Suit == first.Suit && t.Value == first.Value + 2);
+            if (b != null && c != null)
+            {
+                List<Tile> next = new List<Tile>(tiles);
+                next.Remove(first);
+                next.Remove(b);
+                next.Remove(c);
+                if (CanFormMelds(next)) return true;
+            }
+        }
+        return false;
+    }
+
+    // ================= 答案比對 =================
     void CompareAnswer()
     {
-        if (currentRowIndex >= allRows.Count) return;
-
         List<Image> row = allRows[currentRowIndex];
 
-        for (int i = 0; i < playerAnswers.Count; i++)
+        for (int i = 0; i < 17; i++)
         {
-            Tile playerTile = playerAnswers[i];
-            Tile correctTile = currentQuestion[i];
+            if (playerAnswers[i].Suit == currentQuestion[i].Suit &&
+                playerAnswers[i].Value == currentQuestion[i].Value)
+                continue;
 
-            if (playerTile.Suit == correctTile.Suit && playerTile.Value == correctTile.Value)
+            // 牌對但位置錯 → 半透明遮罩
+            bool exist = currentQuestion.Exists(t =>
+                t.Suit == playerAnswers[i].Suit && t.Value == playerAnswers[i].Value);
+
+            if (exist && row[i].transform.childCount > 0)
             {
-                // 完全正確，顯示答案
-                row[i].sprite = Resources.Load<Sprite>("Tiles/" + playerTile.GetSpriteName());
-                row[i].enabled = true;
-            }
-            else
-            {
-                // 牌對但位置不對 → 顯示遮罩提示
-                row[i].enabled = true;
-                if (row[i].transform.childCount > 0)
-                {
-                    row[i].transform.GetChild(0).gameObject.SetActive(true);
-                    // 可用不同顏色區分提示
-                    row[i].transform.GetChild(0).GetComponent<Image>().color = Color.yellow;
-                }
+                Image mask = row[i].transform.GetChild(0).GetComponent<Image>();
+                mask.color = new Color(1f, 1f, 0f, 0.5f);
+                mask.gameObject.SetActive(true);
             }
         }
 
-        // 下一列
         currentRowIndex++;
-
-        // 清空玩家答案區，準備下一次作答
         playerAnswers.Clear();
         playerTileCount.Clear();
     }
