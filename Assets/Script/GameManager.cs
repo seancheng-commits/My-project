@@ -1,10 +1,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class GameManager : MonoBehaviour
 {
     private Player _myPlayer;
+    public Text Debugtext;
 
     public void Start()
     {
@@ -16,6 +18,8 @@ public class GameManager : MonoBehaviour
         // 測試看看
         _myPlayer.TakeDamage(10);
         _myPlayer.GainXp(120);
+
+        Debugtext.text = "";
     }
 
     public void Update()
@@ -28,8 +32,13 @@ public class GameManager : MonoBehaviour
         if(Input.GetKeyDown(KeyCode.A))
         {
             _myPlayer.TakeDamage(10f);
-            Debug.Log("造成傷害");
-            Debug.Log($"目前生命值：{_myPlayer.Hp}");
         }
+
+        if(Input.GetKeyDown(KeyCode.E))
+        {
+            _myPlayer.GainXp(10);
+        }
+
+        Debugtext.text = "玩家目前生命值 : "+ _myPlayer.Hp.ToString() + "目前經驗值 :" + _myPlayer.Xp.ToString() + "目前玩家等級 :" + -_myPlayer.Level;
     }
 }

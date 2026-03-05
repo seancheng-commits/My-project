@@ -18,6 +18,9 @@ public class Player
     public void TakeDamage(float damage)
     {
         Hp -= damage;
+        Debug.Log($"造成傷害{damage}");
+        Debug.Log($"目前生命值：{Hp}");
+
         if (Hp <= 0)
         {
             Hp = 0; // 確保血量不為負
@@ -27,12 +30,14 @@ public class Player
 
     public void GainXp(int amount)
     {
-        Xp += amount; 
+        Xp += amount;
+        Debug.Log($"目前經驗值{Xp}");
 
         if (Xp >= 100)
         {
             Xp -= 100; // ✅ 升級要扣掉 100 經驗
             Level++;
+            Hp += 100;
             
             // ✅ 這裡要印的是「等級」，而不是「傷害」
             Debug.Log($"{Name} 升級了！目前等級：{Level}，剩餘經驗：{Xp}");
